@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { portalClient } from './client';
+import { useSession } from './use-session';
+import { NewPassword } from './Recovery';
 import { statusLabel, type Area } from './domain';
 import { inviteCode, roles } from './onboarding';
 import { Account } from './Account';
@@ -8,11 +9,11 @@ import { Customers, Images, Registration, Team } from './Workshop';
 import type { Kit } from './portal-kit';
 import { rpc, useDashboard, useTask } from './use-portal';
 
-type Props = { kit: Kit; area: Area; initialCode?: string };
+type Props = { kit: Kit; area: Area; initialCode?: string; wake?: number };
 type Tab = 'overview' | 'register' | 'invite' | 'team' | 'customers' | 'images';
 
-function Dashboard({ kit: K, client, area, initialCode }: { client: SupabaseClient } & Props) {
-  const board = useDashboard(client, area);
+function Dashboard({ kit: K, client, area, initialCode, wake }: { client: SupabaseClient } & Props) {
+  const board = useDashboard(client, area, wake);
   const [tab, setTab] = useState<Tab>(initialCode ? 'invite' : 'overview');
   const [code, setCode] = useState(initialCode || '');
   const [success, setSuccess] = useState('');
@@ -245,20 +246,12 @@ function Dashboard({ kit: K, client, area, initialCode }: { client: SupabaseClie
 export function Workspace({
   kit: K,
   area,
-  url,
-  publicKey,
+  client,
+  initialUser = null,
   initialCode,
-}: Props & { url?: string; publicKey?: string }) {
-  const [client] = useState(() => portalClient(url, publicKey));
-  const [id, setId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!client) return;
-    const { data } = client.auth.onAuthStateChange((_event, session) => setId(session?.user.id || null));
-    return () => {
-      data.subscription.unsubscribe();
-      void client.auth.stopAutoRefresh();
-    };
-  }, [client]);
+  wake,
+}: Props & { client: SupabaseClient | null; initialUser?: string | null }) {
+  const session = useSession(client, initialUser);
   if (!client)
     return (
       <K.Card>
@@ -266,9 +259,41 @@ export function Workspace({
         <K.Body>A demonstração com dados fictícios está disponível na tela inicial.</K.Body>
       </K.Card>
     );
-  return id ? (
-    <Dashboard key={area + id} client={client} kit={K} area={area} initialCode={initialCode} />
-  ) : (
-    <Account kit={K} client={client} driver={area === 'motorista'} />
+  if (session.loading) return <K.Notice>Restaurando sua sessão…</K.Notice>;
+  if (session.failed)
+    return (
+      <K.Card>
+        <K.Heading>Não foi possível restaurar a sessão</K.Heading>
+        <K.Body>Confira a conexão e se o dispositivo está desbloqueado.</K.Body>
+        <K.Button press={session.retry}>Tentar novamente</K.Button>
+      </K.Card>
+    );
+  if (session.recovering && session.user)
+    return (
+      <NewPassword
+        client={client}
+        kit={K}
+        done={() => {
+          session.setRecovering(false);
+          session.setNotice('Senha alterada com sucesso.');
+        }}
+      />
+    );
+  return (
+    <>
+      {session.notice && <K.Notice>{session.notice}</K.Notice>}
+      {session.user ? (
+        <Dashboard
+          key={area + session.user}
+          client={client}
+          kit={K}
+          area={area}
+          initialCode={initialCode}
+          wake={wake}
+        />
+      ) : (
+        <Account kit={K} client={client} driver={area === 'motorista'} />
+      )}
+    </>
   );
 }

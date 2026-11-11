@@ -1,6 +1,8 @@
+import { authMessage } from './auth-error';
 import { useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Kit } from './portal-kit';
+import { Recovery } from './Recovery';
 import { useTask } from './use-portal';
 
 export function Account({
@@ -12,7 +14,7 @@ export function Account({
   client: SupabaseClient;
   driver: boolean;
 }) {
-  const [mode, setMode] = useState<'login' | 'signup' | 'verify'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'verify' | 'recover'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,21 +36,31 @@ export function Account({
           token: code.trim(),
           type: 'email',
         });
-        if (error) throw Error('Código inválido ou expirado. Solicite um novo código.');
-      } else if (mode === 'signup') {
-        if (!name.trim() || name.trim().length > 120) throw Error('Informe seu nome com até 120 caracteres.');
-        if (password.length < 10) throw Error('Escolha uma senha com pelo menos 10 caracteres.');
-        const { error } = await client.auth.signUp({ email: address, password, options: { data: { full_name: name.trim() } } });
         if (error)
-          throw Error('Não foi possível cadastrar. Confira o e-mail e a senha ou tente entrar.');
+          throw Error(authMessage(error, 'Código inválido ou expirado. Solicite um novo código.'));
+      } else if (mode === 'signup') {
+        if (!name.trim() || name.trim().length > 120)
+          throw Error('Informe seu nome com até 120 caracteres.');
+        if (password.length < 10) throw Error('Escolha uma senha com pelo menos 10 caracteres.');
+        const { error } = await client.auth.signUp({
+          email: address,
+          password,
+          options: { data: { full_name: name.trim() } },
+        });
+        if (error)
+          throw Error(
+            authMessage(error, 'Não foi possível cadastrar. Confira o e-mail e a senha ou tente entrar.')
+          );
         change('verify');
         task.setMessage('Confira sua caixa de entrada e a pasta de spam.');
       } else {
         const { error } = await client.auth.signInWithPassword({ email: address, password });
-        if (error) throw Error('Confira o e-mail, a senha e a confirmação da conta.');
+        if (error)
+          throw Error(authMessage(error, 'Confira o e-mail, a senha e a confirmação da conta.'));
       }
     });
   }
+  if (mode === 'recover') return <Recovery kit={K} client={client} back={() => change('login')} />;
   return (
     <K.Form submit={submit}>
       <K.Heading>
@@ -90,7 +102,8 @@ export function Account({
           press={() =>
             void task.run(async () => {
               const { error } = await client.auth.resend({ type: 'signup', email: email.trim() });
-              if (error) throw Error('Aguarde um momento antes de solicitar outro código.');
+              if (error)
+                throw Error(authMessage(error, 'Aguarde um momento antes de solicitar outro código.'));
               task.setMessage('Verifique seu e-mail para continuar.');
             })
           }
@@ -108,6 +121,11 @@ export function Account({
       {mode === 'login' && (
         <K.Button secondary disabled={task.busy} press={() => change('verify')}>
           Tenho um código de confirmação
+        </K.Button>
+      )}
+      {mode === 'login' && (
+        <K.Button secondary disabled={task.busy} press={() => change('recover')}>
+          Esqueci minha senha
         </K.Button>
       )}
       {task.message && <K.Notice>{task.message}</K.Notice>}

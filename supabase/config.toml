@@ -28,3 +28,11 @@ otp_expiry = 600
 [auth.email.template.confirmation]
 subject = "Confirme seu e-mail no AutoCRM"
 content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Recupere sua senha do AutoCRM"
+content_path = "./supabase/templates/recovery.html"
+
+# Disposable local Mailpit stack exercises three signups plus recovery.
+[auth.rate_limit]
+email_sent = 30

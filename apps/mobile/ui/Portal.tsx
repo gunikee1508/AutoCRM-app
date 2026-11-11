@@ -1,11 +1,20 @@
-import { ScrollView, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { portals, type Area } from '@autocrm/core/domain';
 import { Workspace } from '@autocrm/core/workspace';
+import { mobileClient } from '../lib/auth';
 import { kit, styles } from './portal-kit';
 export { styles } from './portal-kit';
 
 export default function Portal({ area }: { area: Area }) {
+  const [wake, setWake] = useState(0);
+  useEffect(() => {
+    const listener = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setWake((v) => v + 1);
+    });
+    return () => listener.remove();
+  }, []);
   const { convite } = useLocalSearchParams<{ convite?: string }>();
   return (
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
@@ -22,13 +31,7 @@ export default function Portal({ area }: { area: Area }) {
             : 'Seus veículos e próximos atendimentos.'}
         </Text>
       </View>
-      <Workspace
-        kit={kit}
-        area={area}
-        initialCode={convite}
-        url={process.env.EXPO_PUBLIC_SUPABASE_URL}
-        publicKey={process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
-      />
+      <Workspace wake={wake} kit={kit} area={area} initialCode={convite} client={mobileClient} />
     </ScrollView>
   );
 }

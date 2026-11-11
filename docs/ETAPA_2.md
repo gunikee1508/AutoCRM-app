@@ -25,7 +25,7 @@ Na raiz, com Node 24 e npm 11, execute `npm ci`. Abra a web com `npm run web` e 
 4. **Motorista.** Em **Clientes e convites**, cadastre nome, telefone e um terceiro e-mail. Gere o convite para esse contato. Na conta do motorista, abra o link web ou cole o link/código em **Aceitar um convite** no app. Cadastre-se, confirme o e-mail correspondente e confirme o vínculo. Teste também sair e entrar por senha.
 5. **Isolamento.** Tente aceitar o mesmo convite novamente e com outra conta confirmada. Ambos devem receber recusa. Uma segunda oficina pode convidar o mesmo motorista para outro contato próprio. Ao aceitar, o motorista passa a selecionar a oficina que quer consultar. Os veículos, ordens e agendamentos futuros são lidos dos registros de cada contato. Um cadastro novo apresenta listas vazias até haver atendimentos. A criação de veículos, ordens e agendamentos pela interface pertence à etapa operacional seguinte.
 
-O compartilhamento dos convites é manual. Somente as mensagens de confirmação de identidade passam pelo Supabase Auth. As sessões desta versão ficam em memória e exigem novo login após recarregar a web ou reiniciar o app.
+O compartilhamento dos convites é manual. Somente as mensagens de confirmação de identidade passam pelo Supabase Auth. A persistência de sessões e a recuperação de senha estão descritas no [guia da Etapa 2.5](ETAPA_2_5.md).
 
 ## Permissões e limites
 

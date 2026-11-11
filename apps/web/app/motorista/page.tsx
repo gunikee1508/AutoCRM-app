@@ -1,2 +1,5 @@
 import Portal from '../Portal';
-export default function Motorista() { return <Portal area="motorista" />; }
+import { serverIdentity } from '../../lib/server-identity';
+export default async function Page() {
+  return <Portal area="motorista" initialUser={await serverIdentity()} />;
+}

@@ -33,6 +33,7 @@ jobs:
           public_key="$(supabase status -o json | jq -er '.PUBLISHABLE_KEY // .ANON_KEY')"
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$public_key" >> "$GITHUB_ENV"
       - run: npm run build
+      - run: npm run test:e2e
       - run: npm run test:supabase
       - if: always()
         run: supabase stop

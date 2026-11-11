@@ -25,6 +25,8 @@ A Etapa 2 disponibiliza cadastro com confirmação de e-mail, onboarding da ofic
 
 Siga o [guia da Etapa 2](docs/ETAPA_2.md) para aplicar as três migrações, configurar Auth e SMTP, preencher os arquivos de ambiente e testar com contas reais na web e nos aplicativos. O guia contém a matriz de permissões e os passos para executar o teste com Supabase Auth local.
 
+O [guia de sessões e homologação da Etapa 2.5](docs/ETAPA_2_5.md) detalha recuperação por e-mail, testes entre contas e validação em aparelhos.
+
 ## Verificar
 
 ```sh

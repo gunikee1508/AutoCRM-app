@@ -231,4 +231,44 @@ test('Contratos da etapa 2 em PostgreSQL, com identidade injetada apenas no test
       await assert.rejects(staff(a, 5, 'mechanic'), /Somente o proprietário/);
     }
   );
+  await t.test('As três migrações mantêm RLS e negam alterações diretas de terceiros', async () => {
+    await as(2);
+    const tables = [
+      'profiles',
+      'workshops',
+      'workshop_members',
+      'customer_contacts',
+      'vehicles',
+      'service_orders',
+      'order_events',
+      'notification_jobs',
+      'portal_invites',
+      'workshop_images',
+      'appointments',
+    ];
+    for (const table of tables) {
+      const { rows } = await db.query('select relrowsecurity from pg_class where oid=to_regclass($1)', [
+        'public.' + table,
+      ]);
+      assert.equal(rows[0].relrowsecurity, true, table);
+      for (const grant of ['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) {
+        assert.equal(
+          await value('select has_table_privilege(current_user,$1,$2)', ['public.' + table, grant]),
+          false,
+          table + ' ' + grant
+        );
+      }
+    }
+    await assert.rejects(db.query("update public.workshops set hours='Teste' where id=$1", [a]), {
+      code: '42501',
+    });
+    await assert.rejects(
+      db.query("update public.workshop_members set role='manager' where workshop_id=$1", [a]),
+      { code: '42501' }
+    );
+    await assert.rejects(
+      db.query('update public.customer_contacts set user_id=$1 where id=$2', [id(2), ca]),
+      { code: '42501' }
+    );
+  });
 });

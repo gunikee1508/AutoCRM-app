@@ -35,7 +35,7 @@ export async function rpc<T>(client: SupabaseClient, name: string, args: Record<
   return data as T;
 }
 
-export function useDashboard(client: SupabaseClient, area: Area) {
+export function useDashboard(client: SupabaseClient, area: Area, wake = 0) {
   const [shop, setShop] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -50,13 +50,13 @@ export function useDashboard(client: SupabaseClient, area: Area) {
       .catch(() => {
         if (active) {
           setSnapshot(null);
-          setError('Não foi possível carregar esta área. Confira a conexão e a confirmação do e-mail.');
+          setError('Não foi possível atualizar esta área. Confira sua conexão e tente novamente.');
         }
       });
     return () => {
       active = false;
     };
-  }, [client, area, shop, revision]);
+  }, [client, area, shop, revision, wake]);
   return {
     snapshot,
     error,

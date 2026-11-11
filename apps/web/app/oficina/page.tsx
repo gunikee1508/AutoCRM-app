@@ -1,2 +1,5 @@
 import Portal from '../Portal';
-export default function Oficina() { return <Portal area="oficina" />; }
+import { serverIdentity } from '../../lib/server-identity';
+export default async function Page() {
+  return <Portal area="oficina" initialUser={await serverIdentity()} />;
+}

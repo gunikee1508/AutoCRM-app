@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "AutoCRM Preview",
+    "name": "AutoCRM",
     "slug": "autocrm-preview",
     "scheme": "autocrm",
     "version": "0.1.0",
@@ -24,6 +24,15 @@
           "microphonePermission": false,
           "cameraPermission": false,
           "photosPermission": "Permita selecionar o logotipo e a foto da oficina."
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#152647",
+          "image": "./assets/splash-mark.png",
+          "imageWidth": 120
         }
       ]
     ]

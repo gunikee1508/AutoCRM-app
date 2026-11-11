@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
@@ -21,18 +22,15 @@ test('Cadastro confirmado, login por senha e vínculo no Supabase local', async 
   const mail = 'http://127.0.0.1:54324/api/v1';
   const owner = await browser.newPage({ baseURL });
   const driver = await browser.newPage({ baseURL });
-  async function account(page, email) {
-    await page.getByRole('button', { name: 'Criar uma conta' }).click();
-    await page.getByLabel('Nome completo').fill('Pessoa de homologação');
-    await page.getByLabel('E-mail', { exact: true }).fill(email);
-    await page.getByLabel('Senha', { exact: true }).fill(password);
-    await page.getByRole('button', { name: 'Cadastrar e confirmar e-mail' }).click();
-    await expect(page.getByLabel('Código de confirmação')).toBeVisible();
+  const staff = await browser.newPage({ baseURL });
+  async function readCode(email, subject) {
     let code = '';
     await expect
       .poll(
         async () => {
-          const found = await request.get(mail + '/search', { params: { query: 'to:' + email } });
+          const found = await request.get(mail + '/search', {
+            params: { query: 'to:' + email + ' subject:' + subject },
+          });
           const message = (await found.json()).messages?.find((m) =>
             m.To.some((a) => a.Address === email)
           );
@@ -44,6 +42,16 @@ test('Cadastro confirmado, login por senha e vínculo no Supabase local', async 
         { timeout: 30000 }
       )
       .toBe(true);
+    return code;
+  }
+  async function account(page, email) {
+    await page.getByRole('button', { name: 'Criar uma conta' }).click();
+    await page.getByLabel('Nome completo').fill('Pessoa de homologação');
+    await page.getByLabel('E-mail', { exact: true }).fill(email);
+    await page.getByLabel('Senha', { exact: true }).fill(password);
+    await page.getByRole('button', { name: 'Cadastrar e confirmar e-mail' }).click();
+    await expect(page.getByLabel('Código de confirmação')).toBeVisible();
+    const code = await readCode(email, 'Confirme');
     await page.getByLabel('Código de confirmação').fill(code);
     await page.getByRole('button', { name: 'Confirmar e-mail', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Sair da conta' })).toBeVisible();
@@ -94,7 +102,95 @@ test('Cadastro confirmado, login por senha e vínculo no Supabase local', async 
     await driver.getByRole('button', { name: 'Confirmar vínculo' }).click();
     await expect(driver.getByRole('heading', { name: 'Oficina ' + run })).toBeVisible();
     await expect(driver.getByRole('button', { name: 'Gerenciar equipe' })).toHaveCount(0);
+    await driver.reload();
+    await expect(driver.getByRole('heading', { name: 'Oficina ' + run })).toBeVisible();
+    await owner.reload();
+    await owner.getByRole('button', { name: 'Gerenciar equipe' }).click();
+    const staffEmail = 'staff-' + run + '@example.com';
+    await owner.getByLabel('E-mail do funcionário').fill(staffEmail);
+    await owner.getByRole('button', { name: 'Gerar convite de equipe' }).click();
+    await staff.goto(await owner.getByLabel('Link de uso único').inputValue());
+    await account(staff, staffEmail);
+    await staff.getByRole('button', { name: 'Confirmar vínculo' }).click();
+    await expect(staff.getByRole('heading', { name: 'Oficina ' + run })).toBeVisible();
+
+    // Ordinary end-user sessions against the disposable local API.
+    async function api(email) {
+      const client = createClient(endpoint, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      expect((await client.auth.signInWithPassword({ email, password })).error).toBeNull();
+      return client;
+    }
+    const mechanic = await api(staffEmail);
+    const customer = await api(driverEmail);
+    const board = await mechanic.rpc('portal_snapshot', { area: 'oficina' });
+    expect(board.error).toBeNull();
+    const shop = board.data.selected;
+    const another = await customer.rpc('register_workshop', {
+      details: {
+        name: 'Segunda oficina',
+        trade_name: 'Outra ' + run,
+        postal_code: '01234000',
+        state_code: 'SP',
+        street: 'Rua B',
+        street_number: '2',
+        district: 'Centro',
+        city: 'São Paulo',
+        phone: '+551133330000',
+        whatsapp: '+5511999990000',
+        email: driverEmail,
+        hours: 'Segunda a sexta',
+      },
+    });
+    expect(another.error).toBeNull();
+    expect(
+      (await mechanic.rpc('portal_snapshot', { area: 'oficina', selected: another.data })).error
+    ).toBeTruthy();
+    expect(
+      (await customer.rpc('portal_snapshot', { area: 'oficina', selected: shop })).error
+    ).toBeTruthy();
+    expect(
+      (await customer.from('workshops').update({ hours: 'Homologação' }).eq('id', shop)).error?.code
+    ).toBe('42501');
+    expect(
+      (await mechanic.from('workshop_members').update({ role: 'manager' }).eq('workshop_id', shop)).error
+        ?.code
+    ).toBe('42501');
+    await owner.reload();
+    await owner.getByRole('button', { name: 'Gerenciar equipe' }).click();
+    await owner.getByRole('button', { name: 'Gerenciar acesso' }).click();
+    await owner.getByRole('button', { name: 'Revogar acesso à oficina' }).click();
+    await expect
+      .poll(
+        async () =>
+          (await mechanic.rpc('portal_snapshot', { area: 'oficina', selected: shop })).error?.message
+      )
+      .toMatch(/indisponível/);
+    await staff.reload();
+    await expect(staff.getByRole('heading', { name: 'Comece pela sua oficina' })).toBeVisible();
+
+    await driver.getByRole('button', { name: 'Sair da conta' }).click();
+    await expect(driver.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible();
+    await driver.reload();
+    await driver.getByRole('button', { name: 'Esqueci minha senha' }).click();
+    await driver.getByLabel('E-mail de recuperação').fill(driverEmail);
+    await driver.getByRole('button', { name: 'Enviar código', exact: true }).click();
+    await driver.getByLabel('Código de recuperação').fill(await readCode(driverEmail, 'Recupere'));
+    await driver.getByRole('button', { name: 'Verificar código' }).click();
+    const updated = randomUUID() + 'aA1!';
+    await driver.getByLabel('Nova senha', { exact: true }).fill(updated);
+    await driver.getByLabel('Confirme a nova senha').fill(updated);
+    await driver.getByRole('button', { name: 'Salvar nova senha' }).click();
+    await expect(driver.getByText('Senha alterada com sucesso.')).toBeVisible();
+    expect(
+      (await customer.auth.signInWithPassword({ email: driverEmail, password })).error
+    ).toBeTruthy();
+    expect(
+      (await customer.auth.signInWithPassword({ email: driverEmail, password: updated })).error
+    ).toBeNull();
   } finally {
+    await staff.close();
     await owner.close();
     await driver.close();
   }
