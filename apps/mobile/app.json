@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "AutoCRM Preview",
+    "slug": "autocrm-preview",
+    "scheme": "autocrm",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.exemplo.autocrm" },
+    "android": { "package": "com.exemplo.autocrm", "adaptiveIcon": { "backgroundColor": "#101A2F" } },
+    "plugins": ["expo-router"]
+  }
+}
