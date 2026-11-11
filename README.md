@@ -19,14 +19,11 @@ npm ci
 
 Os aplicativos abrem sem variáveis de ambiente. Nesse caso os portais informam que o acesso está em configuração. Na web, `/demo/index.html` contém a simulação interativa original. No mobile, a rota `/demo` mantém os dados em memória.
 
-## Conectar um Supabase de desenvolvimento
+## Cadastro e homologação
 
-1. Em um projeto de desenvolvimento vazio, aplique pelo SQL Editor, em ordem, `supabase/migrations/001_core.sql` e `002_portals.sql`. Com Supabase CLI e Docker locais, execute `supabase start` na raiz para criar a instância local com as migrações. A segunda migração valida referências existentes. Se houver dados anteriores inconsistentes, revise-os antes de migrar.
-2. Copie `apps/web/.env.example` para `apps/web/.env.local` e `apps/mobile/.env.example` para `apps/mobile/.env.local`. Preencha a URL da API e a **chave publicável** do projeto. Cada app usa o prefixo presente em seu exemplo. No aparelho use uma URL alcançável por ele. Reinicie o servidor de desenvolvimento ou gere um novo build ao alterar esses valores.
-3. Para testar com contas descartáveis, crie e confirme os usuários de e-mail/senha no Supabase Auth. No SQL Editor ou Studio, crie uma linha em `profiles` para cada UUID de Auth, uma oficina em `workshops` e um vínculo em `workshop_members` para o funcionário. Crie um `customer_contacts` da oficina com o UUID do motorista em `user_id`, um veículo desse contato e uma OS referenciando os mesmos três registros. Use exclusivamente dados fictícios.
-4. Entre com cada conta na área correspondente. A oficina consulta as últimas 50 OS das oficinas vinculadas. O motorista consulta as últimas 50 OS dos seus contatos. O botão **Atualizar** repete a consulta. O acesso ao banco passa pela RLS. As credenciais de sessão ficam em memória e é preciso entrar de novo ao reabrir o portal.
+A Etapa 2 disponibiliza cadastro com confirmação de e-mail, onboarding da oficina, gestão de funcionários e vínculo de motoristas por convite de uso único. Os painéis usam permissões verificadas no banco.
 
-As permissões de aplicativo são de leitura e limitadas a colunas específicas. A criação de vínculos permanece administrativa nesta etapa. A chave `service_role`, senhas de banco e tokens de provedores pertencem exclusivamente a serviços de confiança. Não os coloque nos arquivos de ambiente públicos.
+Siga o [guia da Etapa 2](docs/ETAPA_2.md) para aplicar as três migrações, configurar Auth e SMTP, preencher os arquivos de ambiente e testar com contas reais na web e nos aplicativos. O guia contém a matriz de permissões e os passos para executar o teste com Supabase Auth local.
 
 ## Verificar
 
@@ -50,4 +47,4 @@ O teste de navegador inicia o build web na porta 4173. Para usar o Chrome instal
 - `supabase/migrations` contém a estrutura relacional e as permissões. Nenhum worker de envio está instalado.
 - `tests` contém as verificações do domínio, das políticas em PostgreSQL embarcado e da navegação web.
 
-Consulte a [auditoria da fundação](docs/FUNDACAO.md) para escopo, validações e próxima implementação. O [contrato de produto](docs/PRODUCT.md) descreve as fases seguintes.
+Consulte a [auditoria da fundação](docs/FUNDACAO.md) para o histórico do primeiro marco. O [contrato de produto](docs/PRODUCT.md) descreve as fases seguintes.

@@ -21,3 +21,18 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npm run build:mobile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.75.0
+      - name: Iniciar Supabase local para homologação
+        run: supabase start -x studio,edge-runtime,logflare,vector,imgproxy,storage-api,realtime,supavisor > /dev/null
+      - name: Preparar configuração pública do teste
+        shell: bash
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321" >> "$GITHUB_ENV"
+          public_key="$(supabase status -o json | jq -er '.PUBLISHABLE_KEY // .ANON_KEY')"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$public_key" >> "$GITHUB_ENV"
+      - run: npm run build
+      - run: npm run test:supabase
+      - if: always()
+        run: supabase stop

@@ -1,46 +1,73 @@
-import { useEffect, useState } from 'react';
-import { loadOrders, portalClient } from './client';
+import { useEffect, useRef, useState } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Area } from './domain';
+import type { Snapshot } from './onboarding';
 
-export function usePortal(area: Area, url?: string, key?: string) {
-  const [client] = useState(() => portalClient(url, key));
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [message, setMessage] = useState('');
+export function useTask() {
+  const lock = useRef(false);
   const [busy, setBusy] = useState(false);
-  const [revision, refresh] = useState(0);
-  const [orders, setOrders] = useState<Awaited<ReturnType<typeof loadOrders>> | null>(null);
-  useEffect(() => {
-    if (!client) return;
-    const { data } = client.auth.onAuthStateChange((_event, session) => setSessionId(session?.user.id ?? null));
-    return () => { data.subscription.unsubscribe(); void client.auth.stopAutoRefresh(); };
-  }, [client]);
-  useEffect(() => {
-    if (!client || !sessionId) return;
-    let active = true;
-    setOrders(null);
-    setMessage('');
-    loadOrders(client, area).then(rows => { if (active) setOrders(rows); })
-      .catch((error: Error) => { if (active) setMessage(error.message); });
-    return () => { active = false; };
-  }, [client, sessionId, revision, area]);
-
-  async function login(email: string, password: string) {
-    if (!client || busy) return;
+  const [message, setMessage] = useState('');
+  async function run(task: () => Promise<void>) {
+    if (lock.current) return;
+    lock.current = true;
     setBusy(true);
     setMessage('');
     try {
-      const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
-      if (error) setMessage('Confira suas credenciais e a conexão.');
-    } catch { setMessage('Não foi possível conectar ao servidor.'); }
-    finally { setBusy(false); }
+      await task();
+    } catch (e) {
+      const msg = typeof e === 'object' && e && 'message' in e ? String(e.message) : '';
+      setMessage(
+        /^[A-ZÁÉÍÓÚÇ][^\n]{1,140}[.!]$/.test(msg)
+          ? msg
+          : 'Não foi possível concluir. Confira os dados e tente novamente.'
+      );
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
   }
-  async function logout() {
-    if (!client) return;
-    const { error } = await client.auth.signOut({ scope: 'local' });
-    if (error) { setMessage('Falha ao sair. Tente novamente.'); return; }
-    setSessionId(null);
-    setOrders(null);
-    setMessage('');
-  }
-  return { configured: Boolean(client), sessionId, busy, message, orders, login, logout, reload: () => refresh(n => n + 1) };
+  return { busy, message, setMessage, run };
+}
+
+export async function rpc<T>(client: SupabaseClient, name: string, args: Record<string, unknown>) {
+  const { data, error } = await client.rpc(name, args);
+  if (error) throw error;
+  return data as T;
+}
+
+export function useDashboard(client: SupabaseClient, area: Area) {
+  const [shop, setShop] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let active = true;
+    setError('');
+    rpc<Snapshot>(client, 'portal_snapshot', { area, selected: shop })
+      .then((value) => {
+        if (active) setSnapshot(value);
+      })
+      .catch(() => {
+        if (active) {
+          setSnapshot(null);
+          setError('Não foi possível carregar esta área. Confira a conexão e a confirmação do e-mail.');
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [client, area, shop, revision]);
+  return {
+    snapshot,
+    error,
+    select: (id: string) => {
+      if (id !== shop) setSnapshot(null);
+      setShop(id);
+    },
+    refresh: (id: string | null = shop) => {
+      if (id !== shop) setSnapshot(null);
+      setShop(id);
+      setRevision((n) => n + 1);
+    },
+  };
 }

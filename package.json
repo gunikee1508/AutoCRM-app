@@ -19,7 +19,8 @@
     "lint": "eslint apps packages tests",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "node --test tests/*.test.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:supabase": "playwright test --config playwright.supabase.mjs"
   },
   "devDependencies": {
     "eslint": "^9.39.0",

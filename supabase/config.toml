@@ -12,8 +12,19 @@ major_version = 15
 
 [auth]
 enabled = true
+minimum_password_length = 10
 site_url = "http://localhost:3000"
-enable_signup = false
+enable_signup = true
 
 [db.seed]
 enabled = false
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+otp_length = 8
+otp_expiry = 600
+
+[auth.email.template.confirmation]
+subject = "Confirme seu e-mail no AutoCRM"
+content_path = "./supabase/templates/confirmation.html"

@@ -5,7 +5,9 @@
   "exports": {
     "./domain": "./domain.ts",
     "./client": "./client.ts",
-    "./use-portal": "./use-portal.ts"
+    "./use-portal": "./use-portal.ts",
+    "./workspace": "./Workspace.tsx",
+    "./kit": "./portal-kit.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.80.0"
