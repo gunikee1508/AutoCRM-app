@@ -1,10 +1,5 @@
-# Site público do AutoCRM — starter Next.js
+# AutoCRM Web
 
-Dentro desta pasta, no computador com internet:
+Na raiz do monorepo execute `npm ci` e `npm run web`. Acesse `http://localhost:3000`. O Next.js serve o site público, `/oficina`, `/motorista` e a demonstração em `/demo/index.html`.
 
-```bash
-npm install
-npm run dev
-```
-
-Acesse `http://localhost:3000`. O site público linka para `/demo/`, que é uma cópia do protótipo navegável estático. A aplicação real da oficina e do motorista deverá migrar para rotas React autenticadas no próximo marco de desenvolvimento. Não há conexão ao backend nesta versão.
+Veja o [guia da raiz](../../README.md) para configurar a conexão, preparar contas de desenvolvimento, testar e compilar.

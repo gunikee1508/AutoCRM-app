@@ -1,0 +1,17 @@
+{
+  "name": "@autocrm/core",
+  "private": true,
+  "version": "0.2.0",
+  "exports": {
+    "./domain": "./domain.ts",
+    "./client": "./client.ts",
+    "./use-portal": "./use-portal.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.80.0"
+  },
+  "peerDependencies": {
+    "react": "^19.1.0"
+  },
+  "type": "module"
+}

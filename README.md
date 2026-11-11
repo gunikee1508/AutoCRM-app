@@ -1,38 +1,53 @@
-# AutoCRM Connect — início do projeto
+# AutoCRM Connect
 
-**Primeira entrega:** protótipo web interativo e telas nativas de prévia Android/iOS, especificação de produto, modelo relacional inicial com RLS e briefing de implementação para Codex.
+Fundação do SaaS de atendimento automotivo. O monorepo utiliza npm workspaces, Next.js, Expo Router e Supabase. A oficina e o motorista têm entradas próprias na web e nos aplicativos. A demonstração permanece disponível com dados fictícios.
 
-Esta **não** é a aplicação comercial pronta. Não há login, API funcionando, envio de WhatsApp/e-mail, integração com loja de apps ou banco conectado. Use apenas dados fictícios no protótipo.
+## Executar
 
-## Começar agora
+Use Node.js 24 e npm 11. Abra o terminal na pasta que contém este README e o arquivo `package-lock.json`. Instale todas as dependências uma vez:
 
-**Ver o protótipo web:** abra `prototype/index.html` em Chrome/Edge, ou execute:
-
-```bash
-cd prototype
-python -m http.server 8000
+```sh
+npm ci
 ```
 
-Acesse `http://localhost:8000`. Teste a alternância de Oficina/Motorista. Mudar status de uma OS para `Pronto para retirada` atualiza a área do motorista e registra uma comunicação **simulada**.
+| Plataforma | Comando na raiz | Como acessar |
+| --- | --- | --- |
+| Web | `npm run web` | Abra `http://localhost:3000`. Use as entradas Oficina ou Motorista, ou o link da demonstração. |
+| Android | `npm run android` | Inicie um emulador Android com o SDK configurado ou conecte um dispositivo. Utilize um cliente Expo compatível com o SDK 54. |
+| iOS | `npm run ios` | Em macOS com Xcode e o Simulator instalados, inicie um simulador compatível. |
+| Aparelho na rede local | `npm run mobile` | Abra o QR com um cliente compatível com o SDK do projeto. Windows pode servir o JavaScript para um iPhone. Para um development build, use as ferramentas nativas da plataforma. |
 
-**Abrir telas móveis:** consulte `apps/mobile/README.md`. O código Expo Router incluído deve ser copiado para um projeto criado com a versão corrente do `create-expo-app`. Não foi compilado nesta sessão, porque não há acesso ao registro de pacotes npm.
+Os aplicativos abrem sem variáveis de ambiente. Nesse caso os portais informam que o acesso está em configuração. Na web, `/demo/index.html` contém a simulação interativa original. No mobile, a rota `/demo` mantém os dados em memória.
 
-**Implementação com Codex:** coloque este pacote em um repositório Git, abra-o no Codex e forneça o arquivo `docs/CODEX_START_HERE.md` como primeira tarefa. O Codex poderá completar o stack, testes e integrações dentro do seu ambiente de desenvolvimento.
+## Conectar um Supabase de desenvolvimento
 
-## Estrutura
+1. Em um projeto de desenvolvimento vazio, aplique pelo SQL Editor, em ordem, `supabase/migrations/001_core.sql` e `002_portals.sql`. Com Supabase CLI e Docker locais, execute `supabase start` na raiz para criar a instância local com as migrações. A segunda migração valida referências existentes. Se houver dados anteriores inconsistentes, revise-os antes de migrar.
+2. Copie `apps/web/.env.example` para `apps/web/.env.local` e `apps/mobile/.env.example` para `apps/mobile/.env.local`. Preencha a URL da API e a **chave publicável** do projeto. Cada app usa o prefixo presente em seu exemplo. No aparelho use uma URL alcançável por ele. Reinicie o servidor de desenvolvimento ou gere um novo build ao alterar esses valores.
+3. Para testar com contas descartáveis, crie e confirme os usuários de e-mail/senha no Supabase Auth. No SQL Editor ou Studio, crie uma linha em `profiles` para cada UUID de Auth, uma oficina em `workshops` e um vínculo em `workshop_members` para o funcionário. Crie um `customer_contacts` da oficina com o UUID do motorista em `user_id`, um veículo desse contato e uma OS referenciando os mesmos três registros. Use exclusivamente dados fictícios.
+4. Entre com cada conta na área correspondente. A oficina consulta as últimas 50 OS das oficinas vinculadas. O motorista consulta as últimas 50 OS dos seus contatos. O botão **Atualizar** repete a consulta. O acesso ao banco passa pela RLS. As credenciais de sessão ficam em memória e é preciso entrar de novo ao reabrir o portal.
 
-- `prototype/` — UX web navegável, com dados fictícios em `localStorage`.
-- `apps/mobile/` — código React Native/Expo para prévia de dois papéis (sem backend).
-- `supabase/migrations/001_core.sql` — migração inicial de domínio e RLS, a revisar/testar antes do uso.
-- `docs/PRODUCT.md` — especificação de UX, jornadas, papéis, notificações e fases.
-- `docs/CODEX_START_HERE.md` — instruções para Codex implementar o produto real.
+As permissões de aplicativo são de leitura e limitadas a colunas específicas. A criação de vínculos permanece administrativa nesta etapa. A chave `service_role`, senhas de banco e tokens de provedores pertencem exclusivamente a serviços de confiança. Não os coloque nos arquivos de ambiente públicos.
 
-## Arquitetura-alvo
+## Verificar
 
-- **Site público e portal web:** Next.js / TypeScript.
-- **Android e iOS:** React Native / Expo Router.
-- **Dados:** Supabase/PostgreSQL, RLS multi-tenant.
-- **Comunicações:** API oficial WhatsApp Business + provedor de e-mail, com worker/filas e preferências LGPD.
-- **Assinaturas:** provedor brasileiro de cobrança recorrente.
+```sh
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npx playwright install chromium
+npm run test:e2e
+npm run build:mobile
+```
 
-Antes de uso comercial, definir contas/credenciais, hospedagem, domínio e políticas de privacidade, revisar UX em dispositivos reais e validar permissões. "AutoCRM" é nome provisório, sujeito a disponibilidade de marca e domínio.
+O teste de navegador inicia o build web na porta 4173. Para usar o Chrome instalado, configure `CHROME_CHANNEL=chrome` no ambiente. O build web pode ser servido com `npm run start -w @autocrm/web`. A exportação mobile grava bundles Hermes e assets em `apps/mobile/dist`. Gerar e assinar instaladores exige as toolchains Android e Apple correspondentes.
+
+## Estrutura e próximos passos
+
+- `apps/web` contém a landing page, os portais e uma cópia pública da demo.
+- `apps/mobile` contém as rotas Expo, a interface nativa e a demonstração.
+- `packages/core` concentra etapas de manutenção, textos de navegação, criação do cliente Supabase e acesso comum aos atendimentos.
+- `supabase/migrations` contém a estrutura relacional e as permissões. Nenhum worker de envio está instalado.
+- `tests` contém as verificações do domínio, das políticas em PostgreSQL embarcado e da navegação web.
+
+Consulte a [auditoria da fundação](docs/FUNDACAO.md) para escopo, validações e próxima implementação. O [contrato de produto](docs/PRODUCT.md) descreve as fases seguintes.
