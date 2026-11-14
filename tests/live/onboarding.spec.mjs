@@ -23,6 +23,7 @@ test('Cadastro confirmado, login por senha e vínculo no Supabase local', async 
   const owner = await browser.newPage({ baseURL });
   const driver = await browser.newPage({ baseURL });
   const staff = await browser.newPage({ baseURL });
+  const secondDriver = await browser.newPage({ baseURL });
   async function readCode(email, subject) {
     let code = '';
     await expect
@@ -102,7 +103,23 @@ test('Cadastro confirmado, login por senha e vínculo no Supabase local', async 
     await driver.getByRole('button', { name: 'Confirmar vínculo' }).click();
     await expect(driver.getByRole('heading', { name: 'Oficina ' + run })).toBeVisible();
     await expect(driver.getByRole('button', { name: 'Gerenciar equipe' })).toHaveCount(0);
-    await driver.reload();
+    // Hold one genuine response to make the transient loading state observable.
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const snapshotRoute = '**/rest/v1/rpc/portal_snapshot';
+    await driver.route(snapshotRoute, async (route) => {
+      await gate;
+      await route.continue();
+    });
+    try {
+      await driver.reload({ waitUntil: 'domcontentloaded' });
+      await expect(driver.getByText('Carregando sua área…')).toBeVisible();
+    } finally {
+      release();
+      await driver.unrouteAll({ behavior: 'wait' });
+    }
     await expect(driver.getByRole('heading', { name: 'Oficina ' + run })).toBeVisible();
     await owner.reload();
     await owner.getByRole('button', { name: 'Gerenciar equipe' }).click();
@@ -124,9 +141,46 @@ test('Cadastro confirmado, login por senha e vínculo no Supabase local', async 
     }
     const mechanic = await api(staffEmail);
     const customer = await api(driverEmail);
+    const previousSession = (await customer.auth.getSession()).data.session;
+    const renewed = await customer.auth.refreshSession();
+    expect(renewed.error).toBeNull();
+    expect(renewed.data.user.id).toBe(previousSession.user.id);
+    expect(renewed.data.session.refresh_token !== previousSession.refresh_token).toBe(true);
+
     const board = await mechanic.rpc('portal_snapshot', { area: 'oficina' });
     expect(board.error).toBeNull();
     const shop = board.data.selected;
+    const admin = await api(ownerEmail);
+    const secondEmail = 'motorista2-' + run + '@example.com';
+    const contact = await admin.rpc('create_customer', {
+      shop,
+      details: { name: 'Segundo motorista', email: secondEmail, phone: '+5511999990002' },
+    });
+    expect(contact.error).toBeNull();
+    const invitation = await admin.rpc('issue_invite', { shop, contact: contact.data });
+    expect(invitation.error).toBeNull();
+    await secondDriver.goto('/motorista');
+    await account(secondDriver, secondEmail);
+    const second = await api(secondEmail);
+    expect(
+      (await second.rpc('accept_invite', { code: invitation.data, area: 'motorista' })).error
+    ).toBeNull();
+    const own = await customer.from('customer_contacts').select('id');
+    const theirs = await second.from('customer_contacts').select('id');
+    expect(own.error).toBeNull();
+    expect(theirs.error).toBeNull();
+    expect(own.data).toHaveLength(1);
+    expect(theirs.data).toEqual([{ id: contact.data }]);
+    expect(own.data[0].id).not.toBe(contact.data);
+    for (const [client, hidden] of [
+      [customer, contact.data],
+      [second, own.data[0].id],
+    ]) {
+      const lookup = await client.from('customer_contacts').select('id').eq('id', hidden);
+      expect(lookup.error).toBeNull();
+      expect(lookup.data).toEqual([]);
+    }
+
     const another = await customer.rpc('register_workshop', {
       details: {
         name: 'Segunda oficina',
@@ -178,6 +232,9 @@ test('Cadastro confirmado, login por senha e vínculo no Supabase local', async 
     await driver.getByRole('button', { name: 'Enviar código', exact: true }).click();
     await driver.getByLabel('Código de recuperação').fill(await readCode(driverEmail, 'Recupere'));
     await driver.getByRole('button', { name: 'Verificar código' }).click();
+    await driver.getByLabel('Nova senha', { exact: true }).fill('curta');
+    await driver.getByRole('button', { name: 'Salvar nova senha' }).click();
+    await expect(driver.getByText('Use pelo menos 10 caracteres na nova senha.')).toBeVisible();
     const updated = randomUUID() + 'aA1!';
     await driver.getByLabel('Nova senha', { exact: true }).fill(updated);
     await driver.getByLabel('Confirme a nova senha').fill(updated);
@@ -190,6 +247,7 @@ test('Cadastro confirmado, login por senha e vínculo no Supabase local', async 
       (await customer.auth.signInWithPassword({ email: driverEmail, password: updated })).error
     ).toBeNull();
   } finally {
+    await secondDriver.close();
     await staff.close();
     await owner.close();
     await driver.close();

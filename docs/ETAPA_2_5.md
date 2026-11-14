@@ -2,11 +2,17 @@
 
 ## Estado desta entrega
 
-A CLI Supabase 2.75.0 executou `supabase start` neste Windows. A tentativa parou na inspeção de `supabase_db_autocrm`: o canal `//./pipe/docker_engine` não existia. Docker Desktop, serviço Docker ativo, API em 127.0.0.1:54321 e configuração de um projeto hospedado estavam ausentes. O teste ao vivo parou na consulta de saúde de Auth com ECONNREFUSED, antes de criar qualquer conta. As migrações 001 a 003 foram aplicadas no PostgreSQL embarcado da suíte. A pilha local com GoTrue, SMTP e PostgREST permanece pendente, assim como a homologação em aparelhos. Não foi necessária uma quarta migração.
+Em 14/11/2026, o Docker Desktop respondeu no contexto desktop-linux com Engine 29.9.3. A CLI Supabase 2.75.0 aplicou as três migrações originais. O histórico do PostgreSQL registrou 001/core, 002/portals e 003/onboarding. A inicialização registrou apenas o aviso esperado de que pgcrypto já estava instalado.
+
+A jornada Playwright passou em Chrome com Auth, PostgREST, PostgreSQL e Mailpit reais. Foram quatro contas confirmadas, duas oficinas, convites de equipe e motorista, recuperação por OTP, recarga de página com cookies, renovação explícita com rotação do refresh token e revogação de funcionário com sessão aberta. Dois motoristas vinculados à mesma oficina consultaram diretamente customer_contacts com seus próprios tokens: cada um recebeu seu contato e uma lista vazia ao solicitar o do outro. Alterações diretas sem autorização retornaram 42501. A interface mostrou carregamento enquanto uma requisição real foi retardada pelo teste, erro de senha curta e confirmação da alteração.
+
+Também passaram lint, TypeScript, build Next.js, 24 testes/subtestes e cinco cenários de interface. A suíte rápida usa PostgreSQL embarcado, identidades injetadas e adaptadores de armazenamento/transporte simulados. Os testes da demonstração usam dados fictícios. O Expo exportou bundles Hermes para Android e iOS. Ficam pendentes SMTP externo e ciclo de vida, armazenamento nativo e recuperação nos aparelhos.
+
+A pilha de homologação foi encerrada com preservação do volume. As portas publicadas no Windows durante os testes foram 54321 (gateway), 54322 (Postgres) e 54324 (Mailpit), todas em 127.0.0.1. Neste Docker Desktop, a opção host_binding_ipv4 na rede bridge sozinha não restringiu a publicação inicial. O inicializador Windows usa um pipe local temporário para informar explicitamente o IP em cada publicação solicitada pela CLI. Ele não abre uma API Docker em TCP.
 
 ## Executar a jornada com Supabase local
 
-1. Instale as dependências com `npm ci` na raiz. Inicie o Docker Desktop com contêineres Linux e confirme que `docker info` mostra o servidor. Com a CLI 2.75.0 execute `supabase start`. Em uma instância nova, a CLI aplica as migrações e carrega os modelos locais de confirmação e recuperação. Para uma instância existente, aplique migrações pendentes com `supabase migration up --local` e reinicie a pilha para reler a configuração do Auth.
+1. Instale as dependências com `npm ci` na raiz. Inicie o Docker Desktop com contêineres Linux e confirme que `docker info` mostra o servidor. No Windows, com Docker no contexto desktop-linux e a CLI 2.75.0 no PATH, execute `node scripts/start-local-windows.cjs` na raiz. Para uma CLI instalada fora do PATH, passe o caminho do executável como argumento. Confira com `docker ps` que todas as portas publicadas do projeto aparecem com 127.0.0.1. Ao terminar, execute `supabase stop` para preservar o volume. Em uma instância nova, a CLI aplica as migrações e carrega os modelos locais de confirmação e recuperação. Para uma instância existente, aplique migrações pendentes com `supabase migration up --local` e reinicie a pilha para reler a configuração do Auth.
 2. Copie os exemplos de ambiente da web e do mobile para `.env.local` em cada app. Obtenha a URL da API e a chave publicável com `supabase status`. Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` na web e as equivalentes `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` no Expo. Em aparelho físico use um endereço alcançável na rede de desenvolvimento. `EXPO_PUBLIC_WEB_URL` define o endereço web dos convites.
 3. Para rodar a suíte com o serviço local, exporte também as duas variáveis da web no **terminal** do teste. Use `http://127.0.0.1:54321` como URL. Execute `npm run build`, `npx playwright install chromium` e `npm run test:supabase`. O teste cria contas descartáveis e duas oficinas. Lê exclusivamente os códigos das suas próprias mensagens no Mailpit em 127.0.0.1:54324. O limite de e-mails da configuração local acomoda cadastro e recuperação durante o teste.
 4. Para testar manualmente, execute `npm run web` e `npm run mobile`. Teste o splash e o SecureStore em builds nativos Android e iOS que incluam os novos módulos. A exportação de JavaScript não exercita o Keychain, o Keystore nem o ciclo de vida do dispositivo.
@@ -27,4 +33,17 @@ O Next usa um cliente SSR por requisição. O proxy renova cookies e encaminha a
 
 No mobile, a sessão fica no SecureStore com acesso no dispositivo desbloqueado no iOS. O adaptador divide valores grandes em partes e publica a nova versão depois de completar a gravação. O SDK usa um cliente por processo e renova em primeiro plano. O logout usa o escopo local da sessão atual. [Expo SecureStore](https://docs.expo.dev/versions/v54.0.0/sdk/securestore/)
 
-A suíte de banco verifica RLS nas onze tabelas, privilégios, alterações diretas de terceiros, operações de proprietário, revogação e contatos vinculados em múltiplas oficinas. Os testes do SDK SSR simulam o transporte de autenticação para verificar o contrato de cookies. Os do adaptador nativo simulam o cofre para exercitar restauração, rotação, gravação interrompida e limpeza. Apenas a suíte `test:supabase` usa a API real, com os tokens das próprias contas de teste, para verificar inclusive as recusas de escrita pelo PostgREST. A disponibilidade do Docker é pré-requisito para executá-la nesta máquina.
+A suíte de banco verifica RLS nas onze tabelas, privilégios, alterações diretas de terceiros, operações de proprietário, revogação e contatos vinculados em múltiplas oficinas. Os testes do SDK SSR simulam o transporte de autenticação para verificar o contrato de cookies. Os do adaptador nativo simulam o cofre para exercitar restauração, rotação, gravação interrompida e limpeza. Apenas a suíte `test:supabase` usa a API real, com os tokens das próprias contas de teste, para verificar inclusive as recusas de escrita pelo PostgREST. A suíte utiliza a chave pública do projeto local, sem credenciais de administração no frontend.
+
+## Publicar o histórico em um GitHub privado
+
+Execute na raiz do checkout, na branch main. Para criar um repositório novo com GitHub CLI, autentique-se na conta correta e substitua CONTA pelo usuário ou organização de destino.
+
+```sh
+gh auth login
+gh repo create CONTA/AutoCRM --private --source=. --remote=origin --push
+git ls-remote --heads origin main
+git rev-parse HEAD
+```
+
+Compare o hash de main no remoto com o HEAD local. O push da branch inclui seus commits ancestrais, desde o protótipo. Para um repositório privado já criado e vazio, use `git remote add origin https://github.com/CONTA/AutoCRM.git` e `git push -u origin main`. Se o destino já tiver commits, confira o histórico antes de prosseguir.
